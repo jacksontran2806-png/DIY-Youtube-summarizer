@@ -49,9 +49,9 @@
     <div id="entry">
         <div class="entry-meta">
             <span id="entryMeta"></span>
-            <button id="copyBtn" class="copy-btn" onclick="copySummary()">Copy</button>
+            <button id="copyBtn" class="copy-btn" onclick="copyNotes()">Copy all</button>
         </div>
-        <div id="summaryText"></div>
+        <div id="notesBody"></div>
         <div id="momentsList"></div>
     </div>
 
@@ -78,16 +78,61 @@
             }
         }
 
-        async function copySummary() {
+        let lastNotes = null;
+
+        function notesToPlainText(notes) {
+            const lines = [];
+            if (notes.overview) lines.push(notes.overview, "");
+            for (const section of (notes.sections || [])) {
+                lines.push((section.heading || "").toUpperCase());
+                (section.items || []).forEach((item, i) => {
+                    const prefix = section.type === "steps" ? `${i + 1}. ` : "- ";
+                    lines.push(prefix + item);
+                });
+                lines.push("");
+            }
+            return lines.join("\n").trim();
+        }
+
+        async function copyNotes() {
             const copyBtn = document.getElementById("copyBtn");
-            const text = document.getElementById("summaryText").textContent;
+            if (!lastNotes) return;
             try {
-                await navigator.clipboard.writeText(text);
+                await navigator.clipboard.writeText(notesToPlainText(lastNotes));
                 copyBtn.textContent = "Copied";
             } catch (err) {
                 copyBtn.textContent = "Couldn't copy";
             }
-            setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+            setTimeout(() => { copyBtn.textContent = "Copy all"; }, 1500);
+        }
+
+        function renderNotes(notes) {
+            const container = document.getElementById("notesBody");
+            container.innerHTML = "";
+
+            if (notes.overview) {
+                const p = document.createElement("p");
+                p.className = "notes-overview";
+                p.textContent = notes.overview;
+                container.appendChild(p);
+            }
+
+            for (const section of (notes.sections || [])) {
+                const heading = document.createElement("h3");
+                heading.className = "notes-heading";
+                heading.textContent = section.heading || "";
+                container.appendChild(heading);
+
+                const isSteps = section.type === "steps";
+                const list = document.createElement(isSteps ? "ol" : "ul");
+                list.className = isSteps ? "notes-steps" : "notes-bullets";
+                for (const item of (section.items || [])) {
+                    const li = document.createElement("li");
+                    li.textContent = item;
+                    list.appendChild(li);
+                }
+                container.appendChild(list);
+            }
         }
 
         function renderMoments(moments, videoId) {
@@ -106,7 +151,13 @@
                 link.href = `https://youtu.be/${videoId}?t=${m.seconds}`;
                 link.target = "_blank";
                 link.rel = "noopener";
-                link.innerHTML = `<span class="moment-time">${m.time}</span>${m.reason}`;
+
+                const time = document.createElement("span");
+                time.className = "moment-time";
+                time.textContent = m.time;
+
+                link.appendChild(time);
+                link.appendChild(document.createTextNode(m.reason || ""));
                 list.appendChild(link);
             }
         }
@@ -116,7 +167,6 @@
             const btn = document.getElementById("goBtn");
             const entry = document.getElementById("entry");
             const errorBox = document.getElementById("error");
-            const summaryText = document.getElementById("summaryText");
             const entryMeta = document.getElementById("entryMeta");
             const recDot = document.getElementById("recDot");
             const recLabel = document.getElementById("recLabel");
@@ -147,7 +197,8 @@
                     const now = new Date();
                     const stamp = now.toLocaleTimeString([], { hour12: false });
                     entryMeta.textContent = "notes — " + now.toLocaleDateString() + " " + stamp;
-                    summaryText.textContent = data.summary;
+                    lastNotes = data.notes || {};
+                    renderNotes(lastNotes);
                     renderMoments(data.visual_moments || [], data.video_id);
                     entry.style.display = "block";
                 }

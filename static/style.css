@@ -283,9 +283,46 @@ button:disabled::before {
     background: transparent;
 }
 
-#summaryText {
-    white-space: pre-wrap;
+.notes-overview {
+    margin: 0 0 22px;
+    font-size: 0.98rem;
+}
+
+.notes-heading {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--amber);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 22px 0 10px;
+}
+
+.notes-heading:first-of-type {
+    margin-top: 0;
+}
+
+.notes-bullets,
+.notes-steps {
+    margin: 0;
+    padding-left: 1.4em;
+}
+
+.notes-bullets li,
+.notes-steps li {
+    margin-bottom: 8px;
+    line-height: 1.55;
     font-size: 0.95rem;
+}
+
+.notes-bullets li::marker {
+    color: var(--amber);
+    content: '– ';
+}
+
+.notes-steps li::marker {
+    color: var(--amber);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
 }
 
 #momentsList {

@@ -46,7 +46,7 @@ def format_mmss(seconds: int) -> str:
     return f"{mm:02d}:{ss:02d}"
 
 
-def analyze(transcript_with_ts: str) -> tuple[str, list[dict]]:
+def analyze(transcript_with_ts: str) -> tuple[dict, list[dict]]:
     client = get_gemini_client()
     if client is None:
         raise RuntimeError("No Gemini API key set yet. Add one above first.")
@@ -54,9 +54,15 @@ def analyze(transcript_with_ts: str) -> tuple[str, list[dict]]:
     prompt = (
         "You're given a YouTube transcript where each line is stamped [MM:SS].\n"
         "Return ONLY valid JSON (no markdown fences, no commentary) shaped exactly like:\n"
-        '{"summary": "...", "visual_moments": [{"seconds": 125, "reason": "..."}]}\n\n'
-        "summary: plain text only, no markdown, no asterisks, no headers. "
-        "Cover the main topic, key points, and takeaways.\n\n"
+        '{"overview": "...", "sections": [{"heading": "...", "type": "bullets", "items": ["...", "..."]}], '
+        '"visual_moments": [{"seconds": 125, "reason": "..."}]}\n\n'
+        "overview: 1-2 plain-text sentences naming the video's main topic. No markdown.\n\n"
+        "sections: break the content into logical, well-labeled sections — however many actually fit "
+        "the video, not a fixed template. Pick headings that describe what's actually in each one "
+        "(e.g. \"Key Points\", \"Why It Matters\", \"Tools Used\", \"Takeaways\") rather than generic "
+        "labels. Use type \"steps\" ONLY for a section that is a genuine ordered sequence the viewer "
+        "would follow in order (a tutorial, a recipe, a setup process) — everything else use type "
+        "\"bullets\". Each item is one plain-text sentence or phrase, no markdown, no asterisks.\n\n"
         f"visual_moments: up to {MAX_VISUAL_MOMENTS} timestamps (as total seconds, integer) "
         "where something shown on screen — a chart, graph, diagram, code, table, or demo — would "
         "land better as an image than a text description. Only flag moments where the transcript "
@@ -76,7 +82,11 @@ def analyze(transcript_with_ts: str) -> tuple[str, list[dict]]:
             text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
             data = json.loads(text)
             moments = data.get("visual_moments", [])[:MAX_VISUAL_MOMENTS]
-            return data["summary"], moments
+            notes = {
+                "overview": data.get("overview", ""),
+                "sections": data.get("sections", []),
+            }
+            return notes, moments
         except Exception as e:
             last_error = e
             print(f"Gemini attempt {attempt + 1} failed: {e}")
@@ -128,13 +138,13 @@ def summarize_route():
         return jsonify({"error": f"Couldn't fetch a transcript for this video: {e}"}), 400
 
     try:
-        summary, moments = analyze(transcript)
+        notes, moments = analyze(transcript)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
     visual_moments = format_moments(moments)
 
-    return jsonify({"summary": summary, "visual_moments": visual_moments, "video_id": video_id})
+    return jsonify({"notes": notes, "visual_moments": visual_moments, "video_id": video_id})
 
 
 if __name__ == "__main__":
