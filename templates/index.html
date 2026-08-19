@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>notes, on video</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>notes, on video</h1>
+        <p class="subhead">paste a link, get the parts worth remembering</p>
+    </header>
+
+    <div class="steps">
+        <div><span>01</span>you drop in a youtube url</div>
+        <div><span>02</span>we pull the transcript</div>
+        <div><span>03</span>an ai reads it and writes you notes</div>
+    </div>
+
+    <div class="input-row">
+        <input type="text" id="urlInput" placeholder="https://youtube.com/watch?v=...">
+        <button id="goBtn" onclick="summarize()">Summarize</button>
+    </div>
+    <p class="hint">works best on videos with captions turned on</p>
+
+    <div id="entry">
+        <div class="entry-meta" id="entryMeta"></div>
+        <div id="summaryText"></div>
+    </div>
+
+    <div id="error"></div>
+
+    <script>
+        async function summarize() {
+            const url = document.getElementById("urlInput").value.trim();
+            const btn = document.getElementById("goBtn");
+            const entry = document.getElementById("entry");
+            const errorBox = document.getElementById("error");
+            const summaryText = document.getElementById("summaryText");
+            const entryMeta = document.getElementById("entryMeta");
+
+            if (!url) return;
+
+            entry.style.display = "none";
+            errorBox.style.display = "none";
+            btn.disabled = true;
+            btn.classList.add("loading");
+            btn.textContent = "reading";
+
+            try {
+                const response = await fetch("/summarize", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: url })
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    errorBox.textContent = data.error;
+                    errorBox.style.display = "block";
+                } else {
+                    const now = new Date();
+                    entryMeta.textContent = "entry — " + now.toLocaleDateString() + " " + now.toLocaleTimeString();
+                    summaryText.textContent = data.summary;
+                    entry.style.display = "block";
+                }
+            } catch (err) {
+                errorBox.textContent = "Something went wrong talking to the server.";
+                errorBox.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove("loading");
+                btn.textContent = "Summarize";
+            }
+        }
+    </script>
+</body>
+</html>
