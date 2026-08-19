@@ -28,6 +28,17 @@
         <div><span>00:03</span>an ai reads it, writes the notes</div>
     </div>
 
+    <div id="keySetup" class="key-setup {{ 'hidden' if has_key else '' }}">
+        <p class="hint">first time here — paste a Gemini API key to get going (free at
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>).
+            saved on this computer only.</p>
+        <div class="input-row">
+            <input type="password" id="keyInput" placeholder="Gemini API key">
+            <button id="saveKeyBtn" onclick="saveKey()">Save</button>
+        </div>
+        <p class="hint" id="keyError"></p>
+    </div>
+
     <div class="input-row">
         <input type="text" id="urlInput" placeholder="https://youtube.com/watch?v=...">
         <button id="goBtn" onclick="summarize()">Summarize</button>
@@ -42,6 +53,26 @@
     <div id="error"></div>
 
     <script>
+        async function saveKey() {
+            const keyInput = document.getElementById("keyInput");
+            const keyError = document.getElementById("keyError");
+            const key = keyInput.value.trim();
+            if (!key) return;
+
+            const response = await fetch("/set-key", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key: key })
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                keyError.textContent = data.error;
+            } else {
+                document.getElementById("keySetup").classList.add("hidden");
+            }
+        }
+
         async function summarize() {
             const url = document.getElementById("urlInput").value.trim();
             const btn = document.getElementById("goBtn");

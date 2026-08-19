@@ -4,11 +4,16 @@ from flask import Flask, request, jsonify, render_template
 from youtube_transcript_api import YouTubeTranscriptApi
 from google import genai
 
-if not os.environ.get("GEMINI_API_KEY"):
-    raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
+import app_config
 
-gemini_client = genai.Client()
 app = Flask(__name__)
+
+
+def get_gemini_client():
+    key = app_config.get_api_key()
+    if not key:
+        return None
+    return genai.Client(api_key=key)
 
 
 def extract_video_id(url: str) -> str | None:
@@ -41,6 +46,10 @@ def strip_markdown(text: str) -> str:
     return text.strip()
 
 def summarize(transcript: str) -> str:
+    client = get_gemini_client()
+    if client is None:
+        raise RuntimeError("No Gemini API key set yet. Add one above first.")
+
     prompt = (
         "Summarize this YouTube video transcript. "
     "Include the main topic, key points, and takeaways. "
@@ -51,7 +60,7 @@ def summarize(transcript: str) -> str:
     last_error = None
     for attempt in range(3):
         try:
-            response = gemini_client.models.generate_content(
+            response = client.models.generate_content(
                 model="gemini-3.7-flash",
                 contents=prompt,
             )
@@ -66,7 +75,17 @@ def summarize(transcript: str) -> str:
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", has_key=bool(app_config.get_api_key()))
+
+
+@app.route("/set-key", methods=["POST"])
+def set_key_route():
+    data = request.get_json() or {}
+    key = data.get("key", "").strip()
+    if not key:
+        return jsonify({"error": "Key can't be empty."}), 400
+    app_config.set_api_key(key)
+    return jsonify({"ok": True})
 
 
 @app.route("/summarize", methods=["POST"])
