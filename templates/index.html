@@ -2,19 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>notes, on video</title>
+    <title>transcript deck</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <header>
-        <h1>notes, on video</h1>
-        <p class="subhead">paste a link, get the parts worth remembering</p>
+        <div class="rec-row">
+            <span class="rec-dot" id="recDot"></span>
+            <span id="recLabel">STANDBY</span>
+        </div>
+        <h1>Transcript Deck</h1>
+        <p class="subhead">drop a youtube link, pull the parts worth keeping</p>
     </header>
 
+    <div class="scrubber" id="scrubber">
+        <div class="scrubber-track"></div>
+        <div class="ticks">
+            <span>00:00</span><span>00:15</span><span>00:30</span><span>00:45</span><span>01:00</span>
+        </div>
+    </div>
+
     <div class="steps">
-        <div><span>01</span>you drop in a youtube url</div>
-        <div><span>02</span>we pull the transcript</div>
-        <div><span>03</span>an ai reads it and writes you notes</div>
+        <div><span>00:01</span>paste a youtube url</div>
+        <div><span>00:02</span>we pull the transcript</div>
+        <div><span>00:03</span>an ai reads it, writes the notes</div>
     </div>
 
     <div class="input-row">
@@ -38,14 +49,18 @@
             const errorBox = document.getElementById("error");
             const summaryText = document.getElementById("summaryText");
             const entryMeta = document.getElementById("entryMeta");
+            const recDot = document.getElementById("recDot");
+            const recLabel = document.getElementById("recLabel");
+            const scrubber = document.getElementById("scrubber");
 
             if (!url) return;
 
             entry.style.display = "none";
             errorBox.style.display = "none";
             btn.disabled = true;
-            btn.classList.add("loading");
-            btn.textContent = "reading";
+            recDot.classList.add("live");
+            recLabel.textContent = "READING";
+            scrubber.classList.add("busy");
 
             try {
                 const response = await fetch("/summarize", {
@@ -60,17 +75,19 @@
                     errorBox.style.display = "block";
                 } else {
                     const now = new Date();
-                    entryMeta.textContent = "entry — " + now.toLocaleDateString() + " " + now.toLocaleTimeString();
+                    const stamp = now.toLocaleTimeString([], { hour12: false });
+                    entryMeta.textContent = "notes — " + now.toLocaleDateString() + " " + stamp;
                     summaryText.textContent = data.summary;
                     entry.style.display = "block";
                 }
             } catch (err) {
-                errorBox.textContent = "Something went wrong talking to the server.";
+                errorBox.textContent = "couldn't reach the server.";
                 errorBox.style.display = "block";
             } finally {
                 btn.disabled = false;
-                btn.classList.remove("loading");
-                btn.textContent = "Summarize";
+                recDot.classList.remove("live");
+                recLabel.textContent = "STANDBY";
+                scrubber.classList.remove("busy");
             }
         }
     </script>
