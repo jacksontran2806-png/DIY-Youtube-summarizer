@@ -1,5 +1,7 @@
 import re
 import os
+import json
+import time
 from flask import Flask, request, jsonify, render_template
 from youtube_transcript_api import YouTubeTranscriptApi
 from google import genai
@@ -7,6 +9,8 @@ from google import genai
 import app_config
 
 app = Flask(__name__)
+
+MAX_VISUAL_MOMENTS = 4
 
 
 def get_gemini_client():
@@ -29,32 +33,37 @@ def extract_video_id(url: str) -> str | None:
     return None
 
 
-def get_transcript(video_id: str) -> str:
-    transcript = YouTubeTranscriptApi().fetch(video_id)
-    return " ".join(snippet.text for snippet in transcript)
+def get_transcript_with_timestamps(video_id: str) -> str:
+    snippets = YouTubeTranscriptApi().fetch(video_id)
+    lines = []
+    for s in snippets:
+        mm, ss = divmod(int(s.start), 60)
+        lines.append(f"[{mm:02d}:{ss:02d}] {s.text}")
+    return "\n".join(lines)
 
 
-import time
-import re
+def format_mmss(seconds: int) -> str:
+    mm, ss = divmod(max(int(seconds), 0), 60)
+    return f"{mm:02d}:{ss:02d}"
 
-def strip_markdown(text: str) -> str:
-    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)   # **bold** -> bold
-    text = re.sub(r"\*(.*?)\*", r"\1", text)        # *italic* -> italic
-    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)  # remove # ## ### headers
-    text = re.sub(r"^-{3,}$", "", text, flags=re.MULTILINE)     # remove --- dividers
-    text = re.sub(r"^[\*\-]\s+", "• ", text, flags=re.MULTILINE)  # * bullets -> •
-    return text.strip()
 
-def summarize(transcript: str) -> str:
+def analyze(transcript_with_ts: str) -> tuple[str, list[dict]]:
     client = get_gemini_client()
     if client is None:
         raise RuntimeError("No Gemini API key set yet. Add one above first.")
 
     prompt = (
-        "Summarize this YouTube video transcript. "
-    "Include the main topic, key points, and takeaways. "
-    "Write in plain text only — no Markdown, no asterisks, no pound signs, no headers.\n\n"
-    f"Transcript:\n{transcript[:12000]}"
+        "You're given a YouTube transcript where each line is stamped [MM:SS].\n"
+        "Return ONLY valid JSON (no markdown fences, no commentary) shaped exactly like:\n"
+        '{"summary": "...", "visual_moments": [{"seconds": 125, "reason": "..."}]}\n\n'
+        "summary: plain text only, no markdown, no asterisks, no headers. "
+        "Cover the main topic, key points, and takeaways.\n\n"
+        f"visual_moments: up to {MAX_VISUAL_MOMENTS} timestamps (as total seconds, integer) "
+        "where something shown on screen — a chart, graph, diagram, code, table, or demo — would "
+        "land better as an image than a text description. Only flag moments where the transcript "
+        "itself signals something is being shown (phrases like \"as you can see\", \"this chart\", "
+        "\"look at this\", \"here's the graph\"). Return an empty list if nothing like that happens.\n\n"
+        f"Transcript:\n{transcript_with_ts[:14000]}"
     )
 
     last_error = None
@@ -64,7 +73,11 @@ def summarize(transcript: str) -> str:
                 model="gemini-3.7-flash",
                 contents=prompt,
             )
-            return response.text
+            text = response.text.strip()
+            text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+            data = json.loads(text)
+            moments = data.get("visual_moments", [])[:MAX_VISUAL_MOMENTS]
+            return data["summary"], moments
         except Exception as e:
             last_error = e
             print(f"Gemini attempt {attempt + 1} failed: {e}")
@@ -72,6 +85,18 @@ def summarize(transcript: str) -> str:
                 time.sleep(2 * (attempt + 1))  # wait 2s, then 4s, before retrying
 
     raise RuntimeError(f"Gemini couldn't summarize this one after 3 tries: {last_error}")
+
+
+def format_moments(moments: list[dict]) -> list[dict]:
+    formatted = []
+    for moment in moments:
+        seconds = int(moment.get("seconds", 0))
+        formatted.append({
+            "time": format_mmss(seconds),
+            "seconds": seconds,
+            "reason": moment.get("reason", ""),
+        })
+    return formatted
 
 @app.route("/")
 def index():
@@ -98,16 +123,18 @@ def summarize_route():
         return jsonify({"error": "That doesn't look like a valid YouTube URL."}), 400
 
     try:
-        transcript = get_transcript(video_id)
+        transcript = get_transcript_with_timestamps(video_id)
     except Exception as e:
         return jsonify({"error": f"Couldn't fetch a transcript for this video: {e}"}), 400
 
     try:
-        summary = summarize(transcript)
+        summary, moments = analyze(transcript)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    return jsonify({"summary": summary})
+    visual_moments = format_moments(moments)
+
+    return jsonify({"summary": summary, "visual_moments": visual_moments, "video_id": video_id})
 
 
 if __name__ == "__main__":

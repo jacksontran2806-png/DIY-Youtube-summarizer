@@ -288,6 +288,41 @@ button:disabled::before {
     font-size: 0.95rem;
 }
 
+#momentsList {
+    margin-top: 20px;
+}
+
+.moments-heading {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 10px;
+}
+
+.moment-link {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-top: 1px solid var(--line);
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 0.88rem;
+}
+
+.moment-link:hover {
+    color: var(--amber);
+}
+
+.moment-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--amber);
+    flex-shrink: 0;
+}
+
 /* ---- error / no signal ---- */
 
 #error {

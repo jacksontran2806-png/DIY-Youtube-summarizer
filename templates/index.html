@@ -52,6 +52,7 @@
             <button id="copyBtn" class="copy-btn" onclick="copySummary()">Copy</button>
         </div>
         <div id="summaryText"></div>
+        <div id="momentsList"></div>
     </div>
 
     <div id="error"></div>
@@ -89,6 +90,27 @@
             setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
         }
 
+        function renderMoments(moments, videoId) {
+            const list = document.getElementById("momentsList");
+            list.innerHTML = "";
+            if (!moments.length) return;
+
+            const heading = document.createElement("p");
+            heading.className = "moments-heading";
+            heading.textContent = "worth watching, not just reading:";
+            list.appendChild(heading);
+
+            for (const m of moments) {
+                const link = document.createElement("a");
+                link.className = "moment-link";
+                link.href = `https://youtu.be/${videoId}?t=${m.seconds}`;
+                link.target = "_blank";
+                link.rel = "noopener";
+                link.innerHTML = `<span class="moment-time">${m.time}</span>${m.reason}`;
+                list.appendChild(link);
+            }
+        }
+
         async function summarize() {
             const url = document.getElementById("urlInput").value.trim();
             const btn = document.getElementById("goBtn");
@@ -104,6 +126,7 @@
 
             entry.style.display = "none";
             errorBox.style.display = "none";
+            document.getElementById("momentsList").innerHTML = "";
             btn.disabled = true;
             recDot.classList.add("live");
             recLabel.textContent = "READING";
@@ -125,6 +148,7 @@
                     const stamp = now.toLocaleTimeString([], { hour12: false });
                     entryMeta.textContent = "notes — " + now.toLocaleDateString() + " " + stamp;
                     summaryText.textContent = data.summary;
+                    renderMoments(data.visual_moments || [], data.video_id);
                     entry.style.display = "block";
                 }
             } catch (err) {
