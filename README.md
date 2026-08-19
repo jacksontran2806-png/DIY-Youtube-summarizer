@@ -18,7 +18,7 @@ Build it yourself:
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt pyinstaller
-pyinstaller --name "TranscriptDeck" --onefile --windowed --add-data "templates;templates" --add-data "static;static" desktop.py
+pyinstaller --name "TranscriptDeck" --onefile --windowed --icon "app_icon.ico" --add-data "templates;templates" --add-data "static;static" desktop.py
 ```
 
 The finished app lands at `dist\TranscriptDeck.exe` — copy it anywhere and double-click to run.
