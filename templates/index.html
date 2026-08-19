@@ -14,6 +14,7 @@
         </div>
         <h1>Transcript Deck</h1>
         <p class="subhead">drop a youtube link, pull the parts worth keeping</p>
+        <button class="link-btn" onclick="toggleKeySetup()">manage API keys</button>
     </header>
 
     <div class="scrubber" id="scrubber">
@@ -30,13 +31,24 @@
     </div>
 
     <div id="keySetup" class="key-setup {{ 'hidden' if has_key else '' }}">
-        <p class="hint">first time here — paste a Gemini API key to get going (free at
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>).
-            saved on this computer only.</p>
-        <div class="input-row">
-            <input type="password" id="keyInput" placeholder="Gemini API key">
-            <button id="saveKeyBtn" onclick="saveKey()">Save</button>
+        <p class="hint">add at least one key to get going — add more than one and the app falls
+            back automatically if the first is down, rate-limited, or out of quota. saved on this
+            computer only.</p>
+
+        <div class="key-row">
+            <label for="geminiKeyInput">Gemini <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">get free key</a></label>
+            <input type="password" id="geminiKeyInput" placeholder="Gemini API key">
         </div>
+        <div class="key-row">
+            <label for="openaiKeyInput">OpenAI <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">get key</a></label>
+            <input type="password" id="openaiKeyInput" placeholder="OpenAI API key (optional)">
+        </div>
+        <div class="key-row">
+            <label for="anthropicKeyInput">Anthropic <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">get key</a></label>
+            <input type="password" id="anthropicKeyInput" placeholder="Anthropic API key (optional)">
+        </div>
+
+        <button id="saveKeyBtn" onclick="saveKeys()">Save</button>
         <p class="hint" id="keyError"></p>
     </div>
 
@@ -58,24 +70,41 @@
     <div id="error"></div>
 
     <script>
-        async function saveKey() {
-            const keyInput = document.getElementById("keyInput");
+        function toggleKeySetup() {
+            document.getElementById("keySetup").classList.toggle("hidden");
+        }
+
+        async function saveKeys() {
             const keyError = document.getElementById("keyError");
-            const key = keyInput.value.trim();
-            if (!key) return;
+            keyError.textContent = "";
 
-            const response = await fetch("/set-key", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ key: key })
-            });
-            const data = await response.json();
+            const fields = [
+                ["gemini", document.getElementById("geminiKeyInput")],
+                ["openai", document.getElementById("openaiKeyInput")],
+                ["anthropic", document.getElementById("anthropicKeyInput")],
+            ].filter(([, input]) => input.value.trim());
 
-            if (data.error) {
-                keyError.textContent = data.error;
-            } else {
-                document.getElementById("keySetup").classList.add("hidden");
+            if (!fields.length) {
+                keyError.textContent = "Enter at least one key.";
+                return;
             }
+
+            for (const [provider, input] of fields) {
+                const response = await fetch("/set-key", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ provider: provider, key: input.value.trim() })
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    keyError.textContent = `${provider}: ${data.error}`;
+                    return;
+                }
+                input.value = "";
+            }
+
+            document.getElementById("keySetup").classList.add("hidden");
         }
 
         let lastNotes = null;

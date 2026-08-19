@@ -1,17 +1,21 @@
 # DIY YouTube Summarizer
 
-Paste a YouTube link, get plain-text notes back. Pulls the video's transcript and hands it to Gemini for a summary — no markdown, no fluff.
+Paste a YouTube link, get structured notes back — headings, bullet sections, and step lists when the video is actually a tutorial. Pulls the transcript and hands it to an AI model for the writeup, with automatic fallback across providers so one outage doesn't take the app down.
 
 ## How it works
 
 1. Drop in a YouTube URL
 2. The server fetches the transcript (needs captions on)
-3. Gemini reads it, writes a short summary, and flags any moments where something on screen (a chart, diagram, demo) is worth watching rather than reading — those show up as clickable timestamp links straight to that point in the video
-4. Copy the notes with one click
+3. Gemini (or OpenAI, or Anthropic — whichever is configured) reads it and breaks it into an overview, labeled sections, and a real numbered steps list if the video is a genuine walkthrough — not one flat paragraph. It also flags moments where something on screen (a chart, diagram, demo) is worth watching rather than reading, as clickable timestamp links straight to that point in the video
+4. Every heading, bullet, and step is normal page text — select and copy just the part you want, or hit "Copy all" for the whole thing at once
+
+## Provider fallback
+
+Add a key for Gemini, OpenAI, and/or Anthropic via "manage API keys" on the page. Only one is required — add more than one and the app tries them in order (Gemini → OpenAI → Anthropic), moving to the next automatically if one is down, rate-limited, or out of quota. Each provider gets 2 tries before the app moves on.
 
 ## Desktop app (Windows)
 
-A standalone window app, no browser tab, no terminal. Double-click `TranscriptDeck.exe` to open it — same as any other app, nothing to install. First run asks for a Gemini key ([get one free](https://aistudio.google.com/apikey)) and saves it to `%APPDATA%\TranscriptDeck\config.json` — enter it once, every run after that opens straight to the input box.
+A standalone window app, no browser tab, no terminal. Double-click `TranscriptDeck.exe` to open it — same as any other app, nothing to install. First run asks for at least one API key and saves it to `%APPDATA%\TranscriptDeck\config.json` — enter it once, every run after that opens straight to the input box.
 
 Build it yourself:
 
@@ -33,18 +37,18 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Open `http://localhost:5000`. Key can also be set via `GEMINI_API_KEY` env var instead of the in-app prompt.
+Open `http://localhost:5000`. Keys can also be set via `GEMINI_API_KEY`, `OPENAI_API_KEY`, and/or `ANTHROPIC_API_KEY` env vars instead of the in-app prompt — env vars always win over a saved key for that provider.
 
 ## Stack
 
 - Flask backend
 - `youtube-transcript-api` for transcripts
-- Gemini (`google-genai`) for summarization
+- `google-genai`, `openai`, and `anthropic` — whichever are configured, tried in that order
 - Plain HTML/CSS/JS frontend, no build step
 
 ## Notes
 
 - Only works on videos with captions available.
-- `GEMINI_API_KEY` must be set as an environment variable — never commit it.
+- API keys are stored locally (`%APPDATA%\TranscriptDeck\config.json` or the matching env var) — never commit them.
 - Notes only ever show text and links back to YouTube — no video frames are downloaded or embedded. YouTube's anti-bot protections (PO tokens) block that path without adding a heavy, fragile Node.js dependency, so it's not worth it.
 <img width="870" height="927" alt="image" src="https://github.com/user-attachments/assets/0d3dc5c0-1816-4b0d-973e-03dd20d258fe" />

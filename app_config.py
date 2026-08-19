@@ -4,20 +4,45 @@ import os
 _CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "TranscriptDeck")
 _CONFIG_PATH = os.path.join(_CONFIG_DIR, "config.json")
 
+_FIELD = {
+    "gemini": "gemini_api_key",
+    "openai": "openai_api_key",
+    "anthropic": "anthropic_api_key",
+}
+_ENV_VAR = {
+    "gemini": "GEMINI_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+}
 
-def get_api_key() -> str | None:
-    env_key = os.environ.get("GEMINI_API_KEY")
-    if env_key:
-        return env_key
+PROVIDERS = tuple(_FIELD)
 
+
+def _read_config() -> dict:
     if not os.path.exists(_CONFIG_PATH):
-        return None
-
+        return {}
     with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f).get("gemini_api_key")
+        return json.load(f)
 
 
-def set_api_key(key: str) -> None:
+def _write_config(data: dict) -> None:
     os.makedirs(_CONFIG_DIR, exist_ok=True)
     with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump({"gemini_api_key": key}, f)
+        json.dump(data, f)
+
+
+def get_key(provider: str) -> str | None:
+    env_key = os.environ.get(_ENV_VAR[provider])
+    if env_key:
+        return env_key
+    return _read_config().get(_FIELD[provider])
+
+
+def set_key(provider: str, key: str) -> None:
+    data = _read_config()
+    data[_FIELD[provider]] = key
+    _write_config(data)
+
+
+def has_any_key() -> bool:
+    return any(get_key(provider) for provider in PROVIDERS)

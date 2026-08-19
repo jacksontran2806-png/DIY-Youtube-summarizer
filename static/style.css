@@ -74,7 +74,24 @@ h1 {
 .subhead {
     color: var(--ink-dim);
     font-size: 0.95rem;
+    margin: 0 0 10px;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    padding: 0;
     margin: 0 0 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-dim);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.link-btn:hover {
+    color: var(--amber);
 }
 
 /* ---- scrubber rule (signature element) ---- */
@@ -229,6 +246,53 @@ button:disabled::before {
 
 .key-setup.hidden {
     display: none;
+}
+
+.key-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.key-row label {
+    flex-shrink: 0;
+    width: 76px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--ink-dim);
+}
+
+.key-row label a {
+    display: block;
+    color: var(--amber);
+    font-size: 0.65rem;
+    text-decoration: none;
+}
+
+.key-row label a:hover {
+    text-decoration: underline;
+}
+
+.key-row input[type="password"] {
+    flex: 1;
+    padding: 8px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    border-radius: 2px;
+}
+
+.key-row input[type="password"]:focus {
+    outline: 2px solid var(--amber);
+    outline-offset: 1px;
+    border-color: var(--amber);
+}
+
+#saveKeyBtn {
+    margin-top: 4px;
 }
 
 #keyError {

@@ -4,6 +4,8 @@ import time
 from flask import Flask, request, jsonify, render_template
 from youtube_transcript_api import YouTubeTranscriptApi
 from google import genai
+import openai
+import anthropic
 
 import app_config
 
@@ -11,12 +13,57 @@ app = Flask(__name__)
 
 MAX_VISUAL_MOMENTS = 4
 
+# Tried in order — first configured provider wins, next one only runs if the
+# previous fails (rate limit, outage, missing key). This is what gives the
+# app "no problem running at all" even when one provider is down.
+PROVIDER_CHAIN = ("gemini", "openai", "anthropic")
+
 
 def get_gemini_client():
-    key = app_config.get_api_key()
-    if not key:
-        return None
-    return genai.Client(api_key=key)
+    key = app_config.get_key("gemini")
+    return genai.Client(api_key=key) if key else None
+
+
+def get_openai_client():
+    key = app_config.get_key("openai")
+    return openai.OpenAI(api_key=key) if key else None
+
+
+def get_anthropic_client():
+    key = app_config.get_key("anthropic")
+    return anthropic.Anthropic(api_key=key) if key else None
+
+
+def call_gemini(client, prompt: str) -> str:
+    response = client.models.generate_content(
+        model="gemini-3.7-flash",
+        contents=prompt,
+    )
+    return response.text
+
+
+def call_openai(client, prompt: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.choices[0].message.content
+
+
+def call_anthropic(client, prompt: str) -> str:
+    response = client.messages.create(
+        model="claude-opus-5",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return next((block.text for block in response.content if block.type == "text"), "")
+
+
+PROVIDERS = {
+    "gemini": (get_gemini_client, call_gemini),
+    "openai": (get_openai_client, call_openai),
+    "anthropic": (get_anthropic_client, call_anthropic),
+}
 
 
 def extract_video_id(url: str) -> str | None:
@@ -47,10 +94,6 @@ def format_mmss(seconds: int) -> str:
 
 
 def analyze(transcript_with_ts: str) -> tuple[dict, list[dict]]:
-    client = get_gemini_client()
-    if client is None:
-        raise RuntimeError("No Gemini API key set yet. Add one above first.")
-
     prompt = (
         "You're given a YouTube transcript where each line is stamped [MM:SS].\n"
         "Return ONLY valid JSON (no markdown fences, no commentary) shaped exactly like:\n"
@@ -71,29 +114,34 @@ def analyze(transcript_with_ts: str) -> tuple[dict, list[dict]]:
         f"Transcript:\n{transcript_with_ts[:14000]}"
     )
 
-    last_error = None
-    for attempt in range(3):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.7-flash",
-                contents=prompt,
-            )
-            text = response.text.strip()
-            text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
-            data = json.loads(text)
-            moments = data.get("visual_moments", [])[:MAX_VISUAL_MOMENTS]
-            notes = {
-                "overview": data.get("overview", ""),
-                "sections": data.get("sections", []),
-            }
-            return notes, moments
-        except Exception as e:
-            last_error = e
-            print(f"Gemini attempt {attempt + 1} failed: {e}")
-            if attempt < 2:
-                time.sleep(2 * (attempt + 1))  # wait 2s, then 4s, before retrying
+    configured = [p for p in PROVIDER_CHAIN if PROVIDERS[p][0]() is not None]
+    if not configured:
+        raise RuntimeError("No API key set yet for any provider. Add one above first.")
 
-    raise RuntimeError(f"Gemini couldn't summarize this one after 3 tries: {last_error}")
+    errors = []
+    for provider in configured:
+        get_client, call = PROVIDERS[provider]
+        client = get_client()
+
+        for attempt in range(2):
+            try:
+                text = call(client, prompt).strip()
+                text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
+                data = json.loads(text)
+                moments = data.get("visual_moments", [])[:MAX_VISUAL_MOMENTS]
+                notes = {
+                    "overview": data.get("overview", ""),
+                    "sections": data.get("sections", []),
+                }
+                return notes, moments
+            except Exception as e:
+                print(f"{provider} attempt {attempt + 1} failed: {e}")
+                if attempt == 0:
+                    time.sleep(2)
+                else:
+                    errors.append(f"{provider}: {e}")
+
+    raise RuntimeError("Every configured provider failed — " + "; ".join(errors))
 
 
 def format_moments(moments: list[dict]) -> list[dict]:
@@ -110,16 +158,21 @@ def format_moments(moments: list[dict]) -> list[dict]:
 
 @app.route("/")
 def index():
-    return render_template("index.html", has_key=bool(app_config.get_api_key()))
+    return render_template("index.html", has_key=app_config.has_any_key())
 
 
 @app.route("/set-key", methods=["POST"])
 def set_key_route():
     data = request.get_json() or {}
-    key = data.get("key", "").strip()
+    provider = data.get("provider", "")
+    key = (data.get("key") or "").strip()
+
+    if provider not in app_config.PROVIDERS:
+        return jsonify({"error": "Unknown provider."}), 400
     if not key:
         return jsonify({"error": "Key can't be empty."}), 400
-    app_config.set_api_key(key)
+
+    app_config.set_key(provider, key)
     return jsonify({"ok": True})
 
 
