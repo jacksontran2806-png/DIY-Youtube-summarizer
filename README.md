@@ -47,3 +47,4 @@ Open `http://localhost:5000`. Key can also be set via `GEMINI_API_KEY` env var i
 - Only works on videos with captions available.
 - `GEMINI_API_KEY` must be set as an environment variable — never commit it.
 - Notes only ever show text and links back to YouTube — no video frames are downloaded or embedded. YouTube's anti-bot protections (PO tokens) block that path without adding a heavy, fragile Node.js dependency, so it's not worth it.
+<img width="870" height="927" alt="image" src="https://github.com/user-attachments/assets/0d3dc5c0-1816-4b0d-973e-03dd20d258fe" />
