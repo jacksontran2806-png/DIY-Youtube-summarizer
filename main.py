@@ -1,5 +1,4 @@
 import re
-import os
 import json
 import time
 from flask import Flask, request, jsonify, render_template
@@ -98,6 +97,7 @@ def format_moments(moments: list[dict]) -> list[dict]:
         })
     return formatted
 
+
 @app.route("/")
 def index():
     return render_template("index.html", has_key=bool(app_config.get_api_key()))
@@ -116,7 +116,7 @@ def set_key_route():
 @app.route("/summarize", methods=["POST"])
 def summarize_route():
     data = request.get_json() or {}
-    url = data.get("url", "")
+    url = (data.get("url") or "").strip()
 
     video_id = extract_video_id(url)
     if not video_id:
