@@ -47,7 +47,10 @@
     <p class="hint">works best on videos with captions turned on</p>
 
     <div id="entry">
-        <div class="entry-meta" id="entryMeta"></div>
+        <div class="entry-meta">
+            <span id="entryMeta"></span>
+            <button id="copyBtn" class="copy-btn" onclick="copySummary()">Copy</button>
+        </div>
         <div id="summaryText"></div>
     </div>
 
@@ -72,6 +75,18 @@
             } else {
                 document.getElementById("keySetup").classList.add("hidden");
             }
+        }
+
+        async function copySummary() {
+            const copyBtn = document.getElementById("copyBtn");
+            const text = document.getElementById("summaryText").textContent;
+            try {
+                await navigator.clipboard.writeText(text);
+                copyBtn.textContent = "Copied";
+            } catch (err) {
+                copyBtn.textContent = "Couldn't copy";
+            }
+            setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
         }
 
         async function summarize() {

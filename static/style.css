@@ -247,6 +247,9 @@ button:disabled::before {
 }
 
 .entry-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.7rem;
     color: var(--amber);
@@ -255,6 +258,29 @@ button:disabled::before {
     margin-bottom: 12px;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--line);
+}
+
+.copy-btn {
+    padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: transparent;
+    color: var(--ink-dim);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.copy-btn::before {
+    content: none;
+}
+
+.copy-btn:hover {
+    color: var(--amber);
+    border-color: var(--amber);
+    background: transparent;
 }
 
 #summaryText {
